@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ドキュメンタリーとジャーナリズムの境界：インタラクティブ分析</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* 基本的なフォントとテキスト設定 */
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #E5E7EB; /* Light Gray for text */
+            margin: 0;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        h1, h2, h3, .font-serif {
+            font-family: 'Noto Serif JP', serif;
+        }
+
+        /* --- 背景アニメーション用のスタイル --- */
+        #animated-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Canvasを最背面に配置 */
+        }
+        
+        /* --- コンテンツ用のスタイル --- */
+        .content-container {
+            position: relative;
+            z-index: 1; /* コンテンツをCanvasの前面に配置 */
+            height: 100vh;
+            overflow-y: auto; /* コンテナ内でコンテンツをスクロールさせる */
+        }
+
+        /* ナビゲーションボタン */
+        .nav-button {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            color: #9CA3AF; /* Gray-400 */
+        }
+        .nav-button:hover {
+            color: #F9FAFB; /* Gray-50 */
+        }
+        .nav-button.active {
+            border-bottom-color: #FBBF24; /* Amber-400 for highlight */
+            color: #FBBF24; /* Amber-400 for highlight */
+        }
+
+        /* セクション表示切り替え */
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        
+        /* 半透明の背景を持つカードスタイル */
+        .card-bg {
+            background-color: rgba(17, 24, 39, 0.8); /* Gray-900 with 80% opacity */
+            backdrop-filter: blur(8px);
+            --webkit-backdrop-filter: blur(8px);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 比較分析ボタン */
+        .comparison-button {
+            transition: all 0.3s ease;
+            background-color: #374151; /* Gray-700 */
+            color: #D1D5DB; /* Gray-300 */
+        }
+        .comparison-button:hover {
+             background-color: #4B5563; /* Gray-600 */
+        }
+        .comparison-button.active {
+            background-color: #FBBF24; /* Amber-400 */
+            color: #111827; /* Gray-900 */
+            font-weight: 700;
+        }
+
+        /* チャートコンテナのサイズ調整 */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px; /* 少し小さくして見栄えを調整 */
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        
+        /* 比較表のスタイル */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2rem;
+            background-color: rgba(31, 41, 55, 0.7); /* Gray-800 with 70% opacity */
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid #4B5563; /* Gray-600 */
+            padding: 0.75rem;
+            text-align: left;
+        }
+        .comparison-table th {
+            background-color: rgba(55, 65, 81, 0.8); /* Gray-700 with 80% opacity */
+            font-family: 'Noto Serif JP', serif;
+            color: #F3F4F6; /* Gray-100 */
+        }
+        .comparison-table tr > td:first-child {
+            font-weight: bold;
+            background-color: rgba(55, 65, 81, 0.8); /* Gray-700 with 80% opacity */
+            color: #D1D5DB; /* Gray-300 */
+        }
+    </style>
+</head>
+<body class="antialiased bg-gray-900">
+
+    <!-- 背景アニメーション用Canvas -->
+    <canvas id="animated-bg"></canvas>
+
+    <!-- メインコンテンツ -->
+    <div class="content-container">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl py-8 md:py-12">
+            
+            <header class="text-center mb-10 md:mb-16">
+                <h1 class="text-3xl md:text-4xl font-bold mb-2 text-gray-100">ドキュメンタリーとジャーナリズムの境界</h1>
+                <p class="text-lg md:text-xl text-gray-300 font-serif">『ショア』と『Black Box Diaries』のあいだ</p>
+            </header>
+
+            <nav class="flex justify-center border-b border-gray-700 mb-8">
+                <button class="nav-button py-4 px-6 block text-center focus:outline-none active" data-target="intro">序論</button>
+                <button class="nav-button py-4 px-6 block text-center focus:outline-none" data-target="theories">理論のプリズム</button>
+                <button class="nav-button py-4 px-6 block text-center focus:outline-none" data-target="comparison">比較分析</button>
+                <button class="nav-button py-4 px-6 block text-center focus:outline-none" data-target="conclusion">結論</button>
+            </nav>
+
+            <main>
+                <section id="intro" class="content-section active">
+                    <div class="card-bg p-6 md:p-8">
+                        <h2 class="text-2xl font-bold mb-4 font-serif text-amber-300">1. 境界線を問いかける二つのまなざし</h2>
+                        <div class="space-y-4 text-base leading-relaxed text-gray-300">
+                            <p>ドキュメンタリーとジャーナリズム、その境界線はどこにあるのだろうか。この根源的な問いを胸に、私たちは二つの強烈なドキュメンタリー作品と向き合うことになる。クロード・ランズマン監督によるホロコーストの記憶を巡る記念碑的大作『SHOAH ショア』（以下、『ショア』）と、伊藤詩織監督が自らの性被害と司法との闘いを赤裸々に記録した『Black Box Diaries』（以下、『BBD』）である。これらの作品は、それぞれ異なる悲劇とトラウマを扱いながらも、記録映像の倫理、当事者の「声」のありよう、そして作品が社会に投げかける波紋という点で、ドキュメンタリーとジャーナリズムの境界線を鋭く問い直す力を持つ。</p>
+                            <p>本稿では、映画監督・作家の森達也が提示するジャーナリズムとドキュメンタリーの区分、そしてドキュメンタリストが背負うべき「覚悟」についての見解、さらにポストコロニアル理論家ガヤトリ・C・スピヴァクが提唱する「サバルタン（声なき者）」の表象の問題と、「真正の歴史家」が「いまだ到来していない“未来の市民”」のために語るという視座を補助線として、この二作品を読み解いていきたい。これらの作品と理論的視座を交差させることで、現代におけるドキュメンタリー映像実践の倫理的・社会的含意を多角的に浮かび上がらせることを試みる。</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="theories" class="content-section">
+                        <div class="card-bg p-6 md:p-8">
+                            <h2 class="text-2xl font-bold mb-6 text-center font-serif text-amber-300">2. 理論のプリズム：森達也とスピヴァクの視点</h2>
+                            <p class="text-center text-gray-400 mb-8 max-w-2xl mx-auto">考察の基盤となる二つの理論的視座、森達也のドキュメンタリー論とガヤトリ・スピヴァクのポストコロニアル理論を概観しておこう。</p>
+                            <div class="grid md:grid-cols-2 gap-8">
+                                <div class="border border-gray-700 rounded-lg p-6 bg-gray-900/50">
+                                    <h3 class="text-xl font-bold mb-3 font-serif">2.1. 森達也：「作品」と「覚悟」</h3>
+                                    <div class="space-y-3 text-gray-300">
+                                       <p>映画監督であり作家の森達也は、ジャーナリズムとドキュメンタリーの間に明確な線を引く。彼によれば、「ジャーナリズムは作品ではない。その問題提起と社会への周知に大きな意味がある。でもドキュメンタリーは作品だ」。ジャーナリズムが客観性や中立性を（可能な限り）追求し、情報提供者の保護を絶対視するのに対し、ドキュメンタリーは「自己表現」であり、監督の主観や感情、思いが優先されるべきだと森は主張する。カメラアングルや編集によって現実は必然的に再構築されるため、ドキュメンタリーは「現実の断片を素材にした世界観の再構築」となるのだ。</p>
+                                       <p>さらに森は、ドキュメンタリストが負うべき倫理的重荷について、「人を傷つける覚悟をしなくてはならない。責任を取れない覚悟をしなくてはならない。後ろめたさや負い目を持ち続けなくてはならない」と語る。この「覚悟」は、対象や社会に対して加害性を持ちうるドキュメンタリー制作の本質的な困難さを示唆しており、特に社会の周縁やタブーに切り込む際に顕著となる。この「後ろめたさ」や「責任を取れない覚悟」は、ドキュメンタリーが単なる情報伝達を超えた、複雑な倫理的判断を伴う「作品」であることの証左とも言えるだろう。</p>
+                                    </div>
+                                </div>
+                                <div class="border border-gray-700 rounded-lg p-6 bg-gray-900/50">
+                                    <h3 class="text-xl font-bold mb-3 font-serif">2.2. スピヴァク：「サバルタン」と「真正の歴史家」</h3>
+                                    <div class="space-y-3 text-gray-300">
+                                        <p>ポストコロニアル理論家ガヤトリ・C・スピヴァクは、「サバルタンは語ることができるか (Can the Subaltern Speak?)」という根源的な問いを投げかけたことで知られる。サバルタンとは、社会構造の中で周縁化され、自らの声を歴史や公的言説の中に届けることができない「従属的な立場にある個人や集団」を指す。スピヴァクによれば、知識人やエリートがサバルタンを「代弁 (representation)」しようとする試みは、しばしばその声を歪めたり、支配的な言説構造の中に回収してしまったりする危険性を孕む。サバルタンの経験や意識は、支配的な歴史記述の論理的な物語からは必然的にこぼれ落ちる「絶対的な限界領域」なのである。</p>
+                                        <p>この文脈で、スピヴァクは「真正の歴史家」という概念に触れる。それは、声なき者の代弁者として、いまだ到来していない「未来の市民」の視点から歴史を語りうる存在として構想される。この「真正の歴史家」は、サバルタンの声を掬い上げようとする困難な営為の中で、既存の歴史記述の限界を認識しつつ、未来に向けた倫理的な応答可能性を探る存在と言えるだろう。スピヴァクの議論は、誰が、どのように、誰のために歴史や経験を語るのかという、表象の政治性と倫理性を鋭く問うものである。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                </section>
+
+                <section id="comparison" class="content-section">
+                    <div class="card-bg p-6 md:p-8">
+                        <h2 class="text-2xl font-bold mb-4 text-center font-serif text-amber-300">インタラクティブ比較分析</h2>
+                        <p class="text-center text-gray-400 mb-8 max-w-2xl mx-auto">以下のボタンから分析テーマを選択してください。選択したテーマに基づき、『ショア』と『Black Box Diaries』がどのように対比されるか、それぞれの解説が表示されます。このインタラクションを通して、両作品の核心に迫ります。</p>
+                        
+                        <div class="flex flex-wrap justify-center gap-2 md:gap-4 mb-8">
+                            <button class="comparison-button active font-semibold py-2 px-4 rounded-full" data-comparison="method">制作方法</button>
+                            <button class="comparison-button font-semibold py-2 px-4 rounded-full" data-comparison="ethics">倫理的課題</button>
+                            <button class="comparison-button font-semibold py-2 px-4 rounded-full" data-comparison="representation">「声」の表象</button>
+                            <button class="comparison-button font-semibold py-2 px-4 rounded-full" data-comparison="journalism">ジャーナリズム性</button>
+                        </div>
+
+                        <div class="grid md:grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="border-t-4 border-cyan-400 pt-4">
+                                <h3 class="text-2xl font-bold mb-4 font-serif text-cyan-300">3. SHOAH ショア</h3>
+                                <div id="shoah-content" class="space-y-3 text-gray-300 leading-relaxed"></div>
+                            </div>
+                            <div class="border-t-4 border-rose-400 pt-4">
+                                <h3 class="text-2xl font-bold mb-4 font-serif text-rose-300">4. Black Box Diaries</h3>
+                                <div id="bbd-content" class="space-y-3 text-gray-300 leading-relaxed"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-12">
+                                <h3 class="text-xl font-bold mb-4 text-center font-serif">5.5. 視覚的サマリー：作品特性の比較</h3>
+                                <div class="chart-container">
+                                    <canvas id="comparisonChart"></canvas>
+                                </div>
+                        </div>
+                        
+                        <div class="mt-12 overflow-x-auto">
+                            <table class="comparison-table">
+                                <thead>
+                                    <tr>
+                                        <th>比較項目</th>
+                                        <th>SHOAH ショア</th>
+                                        <th>Black Box Diaries</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>監督と背景</td><td>クロード・ランズマン（ジャーナリスト、歴史家）</td><td>伊藤詩織（ジャーナリスト、性被害サバイバー）</td></tr>
+                                    <tr><td>主要主題</td><td>ホロコースト（ユダヤ人大量虐殺）</td><td>伊藤詩織監督自身の性被害告発と司法闘争</td></tr>
+                                    <tr><td>中心的制作方法</td><td>アーカイブ映像なし、現在の場所での証言（生存者、加害者、傍観者）</td><td>一人称ナラティブ、ビデオダイアリー、隠し録音、CGによる監視カメラ映像再現</td></tr>
+                                    <tr><td>主要な倫理的課題</td><td>証言者の再トラウマ化、監督の権力性、通訳の問題</td><td>同意、情報源の秘匿、公益性とプライバシーの衝突</td></tr>
+                                    <tr><td>森達也氏の分類（仮説）</td><td>ジャーナリズム的インパクトを持つ「作品」</td><td>個人的・政治的介入としての「作品」</td></tr>
+                                    <tr><td>森達也氏の「覚悟」の顕在化</td><td>歴史的記録と数百万人の記憶への責任、証言者への負荷</td><td>自己の人生、司法制度、他の被害者への影響、手法の倫理的リスク</td></tr>
+                                    <tr><td>スピヴァク的表象のレンズ</td><td>死者の「代理」としての発話、歴史的ナラティブの限界</td><td>サバルタンは語りうるか？言説的権力への挑戦</td></tr>
+                                    <tr><td>「ジャーナリズム」との関連</td><td>調査的要素、真実伝達、社会的インパクト</td><td>調査プロセス、アドボカシー・ジャーナリズム</td></tr>
+                                    <tr><td>「作品」としてのドキュメンタリー</td><td>美的構築、作者のヴィジョン</td><td>個人的ナラティブ、感情の軌跡、映像制作技術</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="conclusion" class="content-section">
+                    <div class="card-bg p-6 md:p-8">
+                        <h2 class="text-2xl font-bold mb-4 font-serif text-amber-300">6. 結論：「未来の市民」のための表象の倫理に向けて</h2>
+                        <div class="space-y-4 text-base leading-relaxed text-gray-300">
+                           <p>『ショア』と『Black Box Diaries』。二つの作品は、それぞれの仕方で、ドキュメンタリーとジャーナリズムの境界線上で格闘する作り手の姿を映し出す。それは、真実を希求するジャーナリスティックな精神と、世界を独自の視点で切り取るドキュメンタリー作家の魂との間で揺れ動く、スリリングな綱渡りにも似ている。</p>
+                            <p>この境界は固定的なものではなく、制作者の意図、方法論、倫理的選択、そして主題の性質によって左右される、文脈依存的かつ動的なものであることが、両作品を通して見えてくる。『ショア』も『BBD』も、ジャーナリズム的な探求と芸術的表現の要素を内包し、単純な定義を困難にする。</p>
+                            <p>真実、トラウマ、そして周縁化された人々の声を倫理的に表象するという課題は、依然としてドキュメンタリー制作者にとって大きな挑戦である。森の言う「覚悟」は、このような困難な領域に踏み込む者にとって不可欠な倫理的スタンスであり続けるだろう。同時に、スピヴァクが示す表象の複雑性と、サバルタンに「純粋な」声を与えることのほぼ不可能性についての警告は、制作者が自らの位置性とナラティブの限界を常に批判的に意識する必要性を強調する。</p>
+                            <p>「未来の市民」という概念は、ドキュメンタリーとジャーナリズムの境界で生み出される作品の倫理的・社会的価値を判断するための、一つの灯台となるかもしれない。最良の作品とは、その不完全さや倫理的妥協にもかかわらず、未来においてより情報に基づき、共感的で、批判的に関与する市民を育成することに最も効果的に貢献するものであろう。『ショア』はホロコーストが未来の世代によって忘れられたり誤解されたりしないことを目指し、『BBD』は未来の被害者のために法律や態度を変えることを目指す。これは、目先の論争を超えた、未来志向の倫理的基準を提供する。</p>
+                            <p>最終的な倫理的尺度は、そのような作品が、物語を語ることと世界を変えることの間の困難な空間を航行しつつも、批判的省察、共感、そして正義へのコミットメントをどの程度育むかにあるのかもしれない。この「境界」自体が単なる記述的カテゴリーではなく、倫理的労働の場である。ここで活動する映画制作者は、現実世界に影響を与える困難な選択を絶えず行っている。森の「覚悟」やスピヴァクの「真正の歴史家」は、単なる理論的構成物ではなく、この労働の生々しい、しばしば苦痛を伴う経験を記述する。この境界における真実の追求は、技術だけでなく、深遠な倫理的再帰性と、語られる物語とそれが影響を与える人々に対する深い責任感を、常にその「未来の市民」――いつの日か完全に耳を傾けるかもしれない存在――を視野に入れながら、要求するのである。</p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+
+<script>
+    // --- コンテンツ切り替え用スクリプト ---
+    const comparisonData = {
+        shoah: {
+            method: `<p>約9時間半に及ぶ長編ドキュメンタリー『ショア』の制作には、11年以上の歳月が費やされた。ジャーナリストとしての経歴を持つランズマンは、ジャン＝ポール・サルトルらとも親交があった。この作品の最大の特徴は、ホロコーストに関する過去の記録映像（アーカイブ映像）を一切使用せず、生存者、加害者、そして傍観者であったポーランドの住民たちの「現在」の証言のみで構成されている点である。ランズマンは、ナチスのプロパガンダ映像などを「想像力を欠いたイメージ」と批判し、アーカイブ映像の使用は真実を歪めると考えた。撮影は、絶滅収容所の跡地や関連する場所で、当時の状況を想起させるように行われた。この手法は、過去の出来事を現在に蘇らせ、観客に強烈な体験を強いる。</p>`,
+            ethics: `<p>森達也の定義に従えば、『ショア』は紛れもなく「作品」である。ランズマンのカメラは、アーカイブ映像という“安易な”過去の再現を拒絶し、現在の風景と生存者の肉声を通して、観る者にホロコーストの記憶を現在進行形の体験として突きつける。これは単なる事実の報告ではなく、監督の強烈な意志と世界観が反映された「自己表現」と言えるだろう。同時に、この作品は森の言う「覚悟」を制作者に強いる。例えば、床屋であったアブラハム・ボンバが、ガス室へ送られる人々の髪を切った体験を語る中で精神的に追い詰められ、撮影の中断を懇願する場面がある。ランズマンは、それでも証言を続けるよう促す。これは、証言者に過去のトラウマを再体験させるという倫理的ジレンマを伴うが、歴史の真実を記録し後世に伝えるという「責任を取れない覚悟」の表れとも解釈できる。ランズマンの「容赦ない」と評されるインタビュー手法は、歴史の重みと向き合うドキュメンタリストの過酷な倫理的選択を浮き彫りにする。</p>`,
+            representation: `<p>スピヴァクの理論的枠組みは、『ショア』がホロコーストの犠牲者という「声なき者（サバルタン）」の経験をいかに表象しようと試みたかを考察する上で示唆に富む。ガス室で殺害された何百万もの人々は、もはや自ら語ることができない究極のサバルタンである。ランズマンは、生存者の証言を通じて、これらの「溺れし者、沈められし者、抹殺されし者」の代わりに、いわば「代理として」語らせようとする。この意味で、ランズマンはスピヴァクの言う「真正の歴史家」の役割を担おうとしていると見ることができる。彼は、断片的な証言を丹念に集め、それらをモンタージュすることで、ホロコーストという「語り得ないもの」を「未来の市民」が理解し、記憶し続けるための歴史的物語を構築しようと試みる。しかし、表象には常に限界が伴う。映画における通訳の過程で、ポーランド語のニュアンスが失われたり、複数の声が均質化されたりする可能性が指摘されており、これはサバルタンの声を完全に捉えることの困難さを示している。</p>`,
+            journalism: `<p>『ショア』は、ホロコーストの真実を追求し、歴史的事実を記録するという点で、ジャーナリズム的な使命感を強く帯びている。しかし、その手法は従来のジャーナリズムの枠を超えている。アーカイブ映像の意図的な排除、長大な上映時間、証言者の感情の深層にまで踏み込む演出は、ランズマンの作家性、すなわち「作品」としての芸術的構築を強く印象づける。『ショア』は、ジャーナリズム的な真実探求とドキュメンタリー映画の芸術的表現が分かちがたく結びついた稀有な例であり、「倫理的感性が最も力強い形で美的選択を決定するノンフィクションの記念碑的作品」と評される。この作品は、ドキュメンタリーが歴史的証言であると同時に、強烈な美的体験を伴う芸術作品たりうることを示している。</p>`
+        },
+        bbd: {
+            method: `<p>ジャーナリストである伊藤詩織は、著名ジャーナリストからの性暴力被害を告発し、その後の刑事・民事の法的手続きにおける困難な道のりを自ら記録した。『BBD』は、伊藤の7年以上にわたる闘いを、一人称の視点、ビデオダイアリー、警察官や関係者との会話の隠し録音、そしてホテルの監視カメラ映像のCGによる再現など、多様な手法を駆使して構成されている。</p>`,
+            ethics: `<p>この制作手法は、深刻な倫理的論争を引き起こした。特に、警察官との会話の無断録音・使用や、裁判以外での使用を禁じられていたとされる監視カメラ映像（CG再現とはいえ）の使用は、取材源の秘匿やプライバシー保護の観点から批判された。これに対し伊藤は、これらの情報開示は「公益性」に資するという見解を示している。この「公益性」の主張は、作品のジャーナリズム的側面とドキュメンタリー的表現の狭間で複雑な問題を提起する。ジャーナリズムの領域では、「公益性」を理由とした倫理規範の例外が認められる場合があるが、それが個人のトラウマと正義の追求という極めて主観的な動機と結びついた「作品」において主張される時、その正当性の判断は一層困難になる。</p>`,
+            representation: `<p>スピヴァクの理論は、『BBD』がサバルタンとしての女性の経験をいかに語ろうとしているかを分析する上で有効な視座を提供する。家父長制的な社会構造の中で、権力を持つ男性から性暴力を受けたとされる伊藤は、その声を上げる過程でさらなる困難に直面し、サバルタン的な状況に置かれたと言える。映画は、このサバルタンの「声」を直接的に発信する試みである。伊藤は、自らのトラウマと、それを取り巻く社会システムや司法制度の不備を丹念に記録・告発することで、自身の経験に関する「真正の歴史家」としての役割を担おうとしている。しかし、伊藤に対する激しいバックラッシュや信用失墜を狙った動きは、この闘争の困難さを物語っている。興味深いのは、『BBD』の国内外での評価の差異である。伊藤の「声」は国際的な舞台で増幅され認知されるが、国内の文脈ではサバルタンとしての性質がより顕著になる。</p>`,
+            journalism: `<p>『BBD』は、その核心において伊藤個人の物語であり、彼女のトラウマと闘いの記録である。しかし同時に、彼女はジャーナリストとしての手法（調査、録音、証拠収集）を用い、事件の様相とそれに対する組織的対応を明らかにしようとする。伊藤自身、「私はジャーナリストであり、サバイバーでした...自分の事件を調べることは許されるのか、何度も自問しました」と語っている。さらに、この映画は社会変革と法改正を求める明確な行動喚起であり、政治的介入としての性格も帯びる。伊藤が「私たちの映画は...私のブラックボックスであり、誰もが見られるように公開されています」と述べる時、それはサバルタンの経験を透明化しようとする試みを示唆する。しかし、「公開する」という行為自体が、何を見せ、どのように見せるかという選択を伴うため、提示される「真実」は強力だが、それは語られた真実なのである。</p>`
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const navButtons = document.querySelectorAll('.nav-button');
+        const contentSections = document.querySelectorAll('.content-section');
+        const comparisonButtons = document.querySelectorAll('.comparison-button');
+        const shoahContent = document.getElementById('shoah-content');
+        const bbdContent = document.getElementById('bbd-content');
+
+        function updateContent(topic) {
+            shoahContent.innerHTML = comparisonData.shoah[topic];
+            bbdContent.innerHTML = comparisonData.bbd[topic];
+        }
+
+        navButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const target = button.dataset.target;
+
+                navButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+
+                contentSections.forEach(section => {
+                    if (section.id === target) {
+                        section.classList.add('active');
+                    } else {
+                        section.classList.remove('active');
+                    }
+                });
+            });
+        });
+
+        comparisonButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const comparisonTopic = button.dataset.comparison;
+                
+                comparisonButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+
+                updateContent(comparisonTopic);
+            });
+        });
+
+        // Initialize content
+        updateContent('method');
+
+        // --- Chart.js Setup ---
+        const ctx = document.getElementById('comparisonChart').getContext('2d');
+        const comparisonChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['作家性', 'ジャーナリズム性', '主観性', '社会的インパクト', '倫理的複雑性'],
+                datasets: [{
+                    label: 'SHOAH ショア',
+                    data: [9, 8, 4, 9, 8],
+                    backgroundColor: 'rgba(56, 189, 248, 0.2)', // Sky-400
+                    borderColor: 'rgba(56, 189, 248, 1)',
+                    pointBackgroundColor: 'rgba(56, 189, 248, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(56, 189, 248, 1)'
+                }, {
+                    label: 'Black Box Diaries',
+                    data: [7, 7, 9, 8, 9],
+                    backgroundColor: 'rgba(244, 114, 182, 0.2)', // Pink-400
+                    borderColor: 'rgba(244, 114, 182, 1)',
+                    pointBackgroundColor: 'rgba(244, 114, 182, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(244, 114, 182, 1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(255, 255, 255, 0.2)' },
+                        grid: { color: 'rgba(255, 255, 255, 0.2)' },
+                        pointLabels: {
+                            font: { size: 12, family: "'Inter', sans-serif" },
+                            color: '#D1D5DB' // Gray-300
+                        },
+                        ticks: {
+                            backdropColor: 'rgba(17, 24, 39, 0.8)',
+                            color: '#9CA3AF' // Gray-400
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: { size: 14, family: "'Inter', sans-serif" },
+                            color: '#F3F4F6' // Gray-100
+                        }
+                    },
+                    tooltip: {
+                         bodyFont: { family: "'Inter', sans-serif" },
+                         titleFont: { family: "'Inter', sans-serif" }
+                    }
+                }
+            }
+        });
+    });
+</script>
+
+<script>
+    // --- 背景アニメーション用スクリプト ---
+
+    // Vector class for 2D operations
+    class Vector {
+        constructor(x = 0, y = 0) { this.x = x; this.y = y; }
+        add(v) { this.x += v.x; this.y += v.y; return this; }
+        sub(v) { this.x -= v.x; this.y -= v.y; return this; }
+        mult(s) { this.x *= s; this.y *= s; return this; }
+        div(s) { if (s !== 0) { this.x /= s; this.y /= s; } return this; }
+        mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+        normalize() { const m = this.mag(); if (m > 0) { this.div(m); } return this; }
+        limit(max) { if (this.mag() > max) { this.normalize().mult(max); } return this; }
+        static sub(v1, v2) { return new Vector(v1.x - v2.x, v1.y - v2.y); }
+        static dist(v1, v2) { const dx = v1.x - v2.x; const dy = v1.y - v2.y; return Math.sqrt(dx * dx + dy * dy); }
+    }
+
+    // Boid class
+    class Boid {
+        constructor(x, y, settings) {
+            this.settings = settings;
+            this.position = new Vector(x, y);
+            this.velocity = new Vector(Math.random() * 2 - 1, Math.random() * 2 - 1);
+            this.velocity.normalize().mult(Math.random() * (this.settings.speedLimit / 2) + (this.settings.speedLimit / 2));
+            this.acceleration = new Vector();
+            this.maxForce = 0.2;
+            this.assignColor();
+        }
+        
+        assignColor() {
+            switch (this.settings.colorMode) {
+                case 'color1': this.color = this.settings.color1; break;
+                case 'color2': this.color = this.settings.color2; break;
+                case 'randomMix': this.color = Math.random() < 0.5 ? this.settings.color1 : this.settings.color2; break;
+                case 'gradient':
+                    const ratio = this.position.y / window.innerHeight;
+                    this.color = this.interpolateColor(this.settings.color1, this.settings.color2, ratio);
+                    break;
+                default: this.color = this.settings.color1;
+            }
+        }
+
+        interpolateColor(color1, color2, factor) {
+            const c1 = this.hexToRgb(color1);
+            const c2 = this.hexToRgb(color2);
+            if (!c1 || !c2) return '#000000';
+            const r = Math.round(c1.r + factor * (c2.r - c1.r));
+            const g = Math.round(c1.g + factor * (c2.g - c1.g));
+            const b = Math.round(c1.b + factor * (c2.b - c1.b));
+            return `rgb(${r},${g},${b})`;
+        }
+
+        hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
+        }
+
+        edges() {
+            if (this.position.x > window.innerWidth) this.position.x = 0;
+            else if (this.position.x < 0) this.position.x = window.innerWidth;
+            if (this.position.y > window.innerHeight) this.position.y = 0;
+            else if (this.position.y < 0) this.position.y = window.innerHeight;
+        }
+
+        applyForce(force) { this.acceleration.add(force); }
+
+        flock(boids) {
+            let separationForce = new Vector();
+            let alignmentForce = new Vector();
+            let cohesionForce = new Vector();
+            let totalSeparation = 0, totalAlignment = 0, totalCohesion = 0;
+            const separationRadius = this.settings.separation;
+            const perceptionRadius = 50;
+
+            for (let other of boids) {
+                if (other === this) continue;
+                let d = Vector.dist(this.position, other.position);
+                if (d > 0 && d < separationRadius) {
+                    let diff = Vector.sub(this.position, other.position);
+                    diff.normalize().div(d);
+                    separationForce.add(diff);
+                    totalSeparation++;
+                }
+                if (d > 0 && d < perceptionRadius) {
+                    alignmentForce.add(other.velocity);
+                    totalAlignment++;
+                    cohesionForce.add(other.position);
+                    totalCohesion++;
+                }
+            }
+
+            if (totalSeparation > 0) {
+                separationForce.div(totalSeparation).normalize().mult(this.settings.speedLimit).sub(this.velocity).limit(this.maxForce).mult(this.settings.separationFactor);
+            }
+            if (totalAlignment > 0) {
+                alignmentForce.div(totalAlignment).normalize().mult(this.settings.speedLimit).sub(this.velocity).limit(this.maxForce).mult(this.settings.alignmentFactor);
+            }
+            if (totalCohesion > 0) {
+                cohesionForce.div(totalCohesion).sub(this.position).normalize().mult(this.settings.speedLimit).sub(this.velocity).limit(this.maxForce).mult(this.settings.cohesionFactor);
+            }
+            
+            this.applyForce(separationForce);
+            this.applyForce(alignmentForce);
+            this.applyForce(cohesionForce);
+        }
+
+        update() {
+            this.velocity.add(this.acceleration).limit(this.settings.speedLimit);
+            this.position.add(this.velocity);
+            this.acceleration.mult(0);
+            this.edges();
+            if (this.settings.colorMode === 'gradient') this.assignColor();
+        }
+
+        draw(ctx) {
+            ctx.fillStyle = this.color;
+            const angle = Math.atan2(this.velocity.y, this.velocity.x);
+            ctx.save();
+            ctx.translate(this.position.x, this.position.y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(this.settings.birdSize, 0);
+            ctx.lineTo(-this.settings.birdSize / 2, -this.settings.wingSpan / 2);
+            ctx.lineTo(-this.settings.birdSize / 2, this.settings.wingSpan / 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    // Main script for animation
+    const canvas = document.getElementById('animated-bg');
+    const ctx_bg = canvas.getContext('2d');
+    let flock = [];
+
+    // Animation settings (hardcoded as controls are removed)
+    const settings = {
+        backgroundColor: '#001122',
+        backgroundAlpha: 0.15,
+        color1: '#00aaff',
+        color2: '#ff0055',
+        colorMode: 'randomMix', // 'color1', 'color2', 'randomMix', 'gradient'
+        quantity: 150,
+        birdSize: 4,
+        wingSpan: 4,
+        speedLimit: 2,
+        separation: 25,
+        separationFactor: 1.5,
+        alignmentFactor: 1.0,
+        cohesionFactor: 1.0,
+    };
+    
+    function hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        if (flock.length > 0 && settings.colorMode === 'gradient') {
+            flock.forEach(boid => boid.assignColor());
+        }
+    }
+
+    function resetFlock() {
+        flock = [];
+        for (let i = 0; i < settings.quantity; i++) {
+            flock.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height, settings));
+        }
+    }
+
+    function animate() {
+        ctx_bg.fillStyle = hexToRgba(settings.backgroundColor, settings.backgroundAlpha);
+        ctx_bg.fillRect(0, 0, canvas.width, canvas.height);
+
+        flock.forEach(boid => {
+            boid.flock(flock);
+            boid.update();
+            boid.draw(ctx_bg);
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    // Initialization
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    resetFlock();
+    animate();
+</script>
+
+</body>
+</html>
+```
+
+このコードは、元のドキュメンタリー分析サイトの全機能とコンテンツを維持しつつ、背景にパーティクルが飛び交うインタラクティブなアニメーションを追加したものです。
+
+**主な変更点**
+* **背景:** 元のウェブサイトの背景を、動的なアニメーション（コード①）に置き換えました。
+* **デザイン:** アニメーションの暗い背景に合わせて、テキストの色を白基調に変更し、コンテンツの各セクションに半透明の背景を適用して、可読性を向上させました。
+* **UIの統合:** アニメーションを制御するためのパネルは削除し、最適な設定をハードコードしました。これにより、コンテンツの閲覧に集中できるクリーンなインターフェースになっています。
+
+これで、より没入感のあるデザインでコンテンツをお楽しみいただけ
